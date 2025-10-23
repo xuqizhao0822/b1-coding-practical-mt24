@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from .terrain import generate_reference_and_limits
+from terrain import generate_reference_and_limits
 
 class Submarine:
     def __init__(self):
@@ -78,13 +78,14 @@ class Mission:
     def from_csv(cls, filepath='mission.csv'):
         # Read the CSV file
         df = pd.read_csv(filepath)
-        # Extract relevant columns (adjust based on actual CSV structure)
-        # Assuming columns are: time, depth_profile, target_depth
-        time = df['time'].values  # or whatever the column name is
-        depth_profile = df['depth_profile'].values
-        target_depth = df['target_depth'].values
-        # Create and return Mission instance
-        return cls(time, depth_profile, target_depth)
+        
+        # Extract the columns 
+        # Assuming columns are: 'reference', 'cave_height', 'cave_depth'
+        reference = df['reference'].values
+        cave_height = df['cave_height'].values
+        cave_depth = df['cave_depth'].values
+        
+        return cls(reference, cave_height, cave_depth)
      
 
 
@@ -102,14 +103,19 @@ class ClosedLoop:
         positions = np.zeros((T, 2))
         actions = np.zeros(T)
         self.plant.reset_state()
+        self.controller.reset()  # Reset controller state
 
         for t in range(T):
             positions[t] = self.plant.get_position()
             observation_t = self.plant.get_depth()
             # Call your controller here
+            reference_t = mission.reference[t]
+            # Compute control action using controller
+            actions[t] = self.controller.compute_control(reference_t, observation_t)
             self.plant.transition(actions[t], disturbances[t])
 
         return Trajectory(positions)
+    
         
     def simulate_with_random_disturbances(self, mission: Mission, variance: float = 0.5) -> Trajectory:
         disturbances = np.random.normal(0, variance, len(mission.reference))
